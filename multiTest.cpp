@@ -284,6 +284,8 @@ void messageFromClient(int playerIdx, char *buffer)
 void assignRoles(int playerNum) {
     //assign player roles
     //Mafia assign
+    char ts[1640];
+    int slen = 0;
     srand(time(0));
     g.civCount = playerNum - g.mafiaCount - g.detectCount - g.doctorCount;
     while (g.mafiaCount > 0) {
@@ -292,6 +294,9 @@ void assignRoles(int playerNum) {
             g.player[rnum].role = Mafia;
             g.player[rnum].hasRole = true;
             g.mafiaCount--;
+            sprintf(ts, "You are Mafia\n");
+            slen = strlen(ts);
+            send(g.client_socket[rnum], ts, slen, 0);
         }
     }
     //Detective assign
@@ -301,6 +306,9 @@ void assignRoles(int playerNum) {
             g.player[rnum].role = Detective;
             g.player[rnum].hasRole = true;
             g.detectCount--;
+            sprintf(ts, "You are Detective\n");
+            slen = strlen(ts);
+            send(g.client_socket[rnum], ts, slen, 0);
         }
     }
     //Doctor assign
@@ -310,6 +318,9 @@ void assignRoles(int playerNum) {
             g.player[rnum].role = Doctor;
             g.player[rnum].hasRole = true;
             g.doctorCount--;
+            sprintf(ts, "You are Doctor\n");
+            slen = strlen(ts);
+            send(g.client_socket[rnum], ts, slen, 0);
         }
     }
     //Civilian assign
@@ -319,6 +330,9 @@ void assignRoles(int playerNum) {
             g.player[rnum].role = Civilian;
             g.player[rnum].hasRole = true;
             g.civCount--;
+            sprintf(ts, "You are Civilian\n");
+            slen = strlen(ts);
+            send(g.client_socket[rnum], ts, slen, 0);
         }
     }
     printf("ROLES ASSIGNED\n");

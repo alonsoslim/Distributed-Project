@@ -40,17 +40,31 @@ class Global {
 public:
 	int client_socket[30];
 	int nclients;
-    int mafiaCount = 1;
+    int mafiaCount = 2;
     int detectCount = 1;
     int doctorCount = 1;
+    int mafia[2];
+    int detect[1];
+    int doctor[1];
+    int dead[MAX_PLAYERS];
+    int deadCount = 0;
+    int currentDead = -1;
+    int currentSuspect = -1;
+    int currentSave = -1;
     int civCount = MAX_PLAYERS - mafiaCount
                 - detectCount- doctorCount;
     Player player[MAX_PLAYERS];
+    bool isStart = false;
+    int currentAction = 0;
 	Global() {
 		nclients = 0;
 	}
 } g;
 
+void sendAll(char *message);
+void sendMafia();
+void sendDetect();
+void sendDoctor();
 void assignRoles(int playerNum);
 void messageFromClient(int playerIdx, char *buffer);
 
@@ -67,8 +81,9 @@ int main(int argc , char *argv[])
     int sd;
 	int max_sd;
     char ts[1640];
-    char *buff;
-    char *p;
+    int slen = 0;
+    //char *buff;
+    //char *p;
     struct sockaddr_in address;
     
     char buffer[1025];  //data buffer of 1K
@@ -172,7 +187,7 @@ int main(int argc , char *argv[])
             {
                 perror("send");
             }
-            
+
             puts("Welcome message sent successfully");
             
             //add new socket to array of sockets
@@ -183,6 +198,9 @@ int main(int argc , char *argv[])
                 {
                     g.client_socket[i] = new_socket;
                     printf("Adding to list of sockets as %d\n" , i);
+                    sprintf(ts, "You are Player: %c\n", (char)'A'+i);
+                    slen = strlen(ts);
+                    send(g.client_socket[i], ts, slen, 0);
                     g.nclients++;
 					
 					break;
@@ -212,26 +230,49 @@ int main(int argc , char *argv[])
                 //Echo back the message that came in
                 else
                 {
-                    buffer[valread] = '\0';
-                    messageFromClient(i, buffer);
-                    
-                    /*
-                    buff = buffer;
-                    p = strstr(buff, "New Message:");
-                    
-                    //set the string terminating NULL byte on the end of the data read
-                    //buffer[valread] = '\0';
-                    //send(sd , buffer , strlen(buffer) , 0 );
-
-                    char message[400] = "";
-                    sprintf(message, "NEW MESSAGE\n");
-                    int slen = strlen(message);
-                    for (int j = 0; j < nclients; j++) {
-                        if (client_socket[j] > 0)
-                            send(client_socket[j], message, slen, 0);
+                    if (g.currentAction == Mafia)
+                    {
+                        for (int j = 0; j < g.mafiaCount; j++)
+                        {
+                            if (i == g.mafia[j])
+                            {
+                                buffer[valread] = '\0';
+                                messageFromClient(i, buffer);
+                            }
+                        }
                     }
-                    buff = x + 3;
-                    */
+                    else if (g.currentAction == Detective)
+                    {
+                        for (int j = 0; j < g.detectCount; j++)
+                        {
+                            if (i == g.detect[j])
+                            {
+                                buffer[valread] = '\0';
+                                messageFromClient(i, buffer);
+                            }
+                        }
+                    }
+                    else if (g.currentAction == Doctor)
+                    {
+                        for (int j = 0; j < g.doctorCount; j++)
+                        {
+                            if (i == g.doctor[j])
+                            {
+                                buffer[valread] = '\0';
+                                messageFromClient(i, buffer);
+                            }
+                        }
+                    }
+                    else if (g.currentAction == Civilian)
+                    {
+                        buffer[valread] = '\0';
+                        messageFromClient(i, buffer);
+                    }
+                    else
+                    {
+                        buffer[valread] = '\0';
+                        messageFromClient(i, buffer);
+                    }
                 }
             }
         }
@@ -240,9 +281,74 @@ int main(int argc , char *argv[])
     return 0;
 }
 
+void sendAll(char *message)
+{
+    int slen = strlen(message);
+    for (int i = 0; i < g.nclients; i++)
+    {
+        if (g.client_socket[i] > 0)
+            send(g.client_socket[i], message, slen, 0);
+    }
+}
+
+void sendMafia()
+{
+    printf("start of mafia\n");
+    char ts[1640];
+    int slen = 0;
+    for (int i = 0; i < g.mafiaCount; i++)
+    {
+        sprintf(ts, "Choose someone to kill.\n");
+        slen = strlen(ts);
+        send(g.client_socket[g.mafia[i]], ts, slen, 0);
+    }
+    g.currentAction = Mafia;
+    printf("end of mafia\n");
+}
+
+void sendDetect()
+{
+    char ts[1640];
+    int slen = 0;
+    for (int i = 0; i < g.detectCount; i++)
+    {
+        sprintf(ts, "Choose someone to suspect.\n");
+        slen = strlen(ts);
+        send(g.client_socket[g.detect[i]], ts, slen, 0);
+    }
+    g.currentAction = Detective;
+}
+
+void sendDoctor()
+{
+    char ts[1640];
+    int slen = 0;
+    for (int i = 0; i < g.doctorCount; i++)
+    {
+        sprintf(ts, "Choose someone to save.\n");
+        slen = strlen(ts);
+        send(g.client_socket[g.doctor[i]], ts, slen, 0);
+    }
+    g.currentAction = Doctor;
+}
+
+void roundCheck()
+{
+    if (g.currentDead == g.currentSaved)
+    {
+        g.currentDead = -1;
+    }
+    else
+    {
+        //g.player[g.currentDead].isDead = true;
+        g.dead[g.current] = g.currentDead;
+        g.deadCount++;
+        sendAll("Player %s has died.\n", (char'A'+g.currentDead));
+    }
+}
+
 void messageFromClient(int playerIdx, char *buffer)
 {
-	//printf("messageFromClient(%i, **%s**)...\n", playerIdx, buffer);
 	//Check for multiple messages in the buffer string.
 	int k = playerIdx;
 	char ts[1640];
@@ -251,85 +357,307 @@ void messageFromClient(int playerIdx, char *buffer)
 	char *p;
     int slen = 0;
 	//any broadcast messages?
-	while (!done) {
-        done = 1;
-        p = strstr(buff, "start");
-        if (p) {
-            printf("inside of start\n");
-            assignRoles(g.nclients);
+	while (!done)
+    {   
+        if (g.currentAction == 0)
+        {
+            done = 1;
+            p = strstr(buff, "start");
+            if (p && !g.isStart)
+            {
+                printf("inside of start\n");
+                assignRoles(g.nclients);
+                sendAll("The game has begun\n");
+                g.isStart = true;
+                sendMafia();
+                printf("current action is: %d\n", g.currentAction);
+            }
+            else
+            {
+                sprintf(ts, "new message from %c: ", (char)'A'+k);	
+                strcat(ts, buff);
+                //Echo back the message that came in, to all players.
+                slen = strlen(ts);
+                char *x = ts;
+                *(x+slen) = '\0';
+                for (int i = 0; i < g.nclients; i++)
+                {
+                    if (g.client_socket[i] > 0)
+                        send(g.client_socket[i], ts, slen, 0);
+                }
+                buff = x + slen;
+                done = 1;
+            }
         }
-        //printf("broadcast came in.\n");
-        //broadcast:hello everyonex#zbroadcast:byex#z");
-        //message will end with x#z
-        sprintf(ts, "new message from %c: ", (char)'A'+k);	
-        //char *x = strstr(p+12, "x#z");
-        
-        strcat(ts, buff);
-        //printf("2\n");
-        //Echo back the message that came in, to all players.
-        int slen = strlen(ts);
-        char *x = ts;
-        *(x+slen) = '\0';
-        //printf("sending **%s**\n", ts);
-        for (int j=0; j<g.nclients; j++) {
-            if (g.client_socket[j] > 0)
-                send(g.client_socket[j], ts, slen, 0);
+        else if (g.currentAction == Mafia)
+        {
+            //printf("\nINSIDE kill check\ncurrent action is: %d\n", g.currentAction);
+            if (strncmp(buff,"a",1) == 0)
+            {
+                g.currentDead = 0;
+            }
+            else if (strncmp(buff,"b",1) == 0)
+            {
+                g.currentDead = 1;
+            }
+            else if (strncmp(buff,"c",1) == 0)
+            {
+                g.currentDead = 2;
+            }
+            else if (strncmp(buff,"d",1) == 0)
+            {
+                g.currentDead = 3;
+            }
+            else if (strncmp(buff,"e",1) == 0)
+            {
+                g.currentDead = 4;
+            }
+            g.currentAction++;
+            sendDetect();
+            done = 1;
+            //printf("current dead is: %d\n", g.currentDead);
         }
-        buff = x + slen;
-        done = 1;
-        //}
+        else if (g.currentAction == Detective)
+        {
+            //printf("\nINSIDE suspect check\ncurrent action is: %d\n", g.currentAction);
+            if (strncmp(buff,"a",1) == 0)
+            {
+                g.currentSuspect = 0;
+            }
+            else if (strncmp(buff,"b",1) == 0)
+            {
+                g.currentSuspect = 1;
+            }
+            else if (strncmp(buff,"c",1) == 0)
+            {
+                g.currentSuspect = 2;
+            }
+            else if (strncmp(buff,"d",1) == 0)
+            {
+                g.currentSuspect = 3;
+            }
+            else if (strncmp(buff,"e",1) == 0)
+            {
+                g.currentSuspect = 4;
+            }
+            g.currentAction++;
+            sendDoctor();
+            done = 1;
+        }
+        else if (g.currentAction == Doctor)
+        {
+            //printf("\nINSIDE save check\ncurrent action is: %d\n", g.currentAction);
+            if (strncmp(buff,"a",1) == 0)
+            {
+                g.currentSave = 0;
+            }
+            else if (strncmp(buff,"b",1) == 0)
+            {
+                g.currentSave = 1;
+            }
+            else if (strncmp(buff,"c",1) == 0)
+            {
+                g.currentSave = 2;
+            }
+            else if (strncmp(buff,"d",1) == 0)
+            {
+                g.currentSave = 3;
+            }
+            else if (strncmp(buff,"e",1) == 0)
+            {
+                g.currentSave = 4;
+            }
+            g.currentAction++;
+            roundCheck();
+            done = 1;
+        }
+        //printf("\nOUTSIDE action checks\ncurrent action is: %d\n", g.currentAction);
+        //printf("current dead is: %d\n", g.currentDead);
 	}
 }
 
-void assignRoles(int playerNum) {
+void assignRoles(int playerNum)
+{
     //assign player roles
-    //Mafia assign
+    
+    int tempCount = 0;
     char ts[1640];
+    char st[1640];
     int slen = 0;
     srand(time(0));
     g.civCount = playerNum - g.mafiaCount - g.detectCount - g.doctorCount;
-    while (g.mafiaCount > 0) {
+    //Mafia assign
+    int tempMafia = g.mafiaCount;
+    while (tempMafia > 0)
+    {
         int rnum = rand() % playerNum;
-        if (g.player[rnum].hasRole == false) {
+        if (g.player[rnum].hasRole == false)
+        {
             g.player[rnum].role = Mafia;
             g.player[rnum].hasRole = true;
-            g.mafiaCount--;
+            tempMafia--;
             sprintf(ts, "You are Mafia\n");
             slen = strlen(ts);
             send(g.client_socket[rnum], ts, slen, 0);
         }
     }
+    
+    //Finding all mafia
+    for (int i = 0; i < playerNum; i++)
+    {
+        if (g.player[i].role == Mafia)
+        {
+            g.mafia[tempCount] = i;
+            tempCount++;
+        }
+    }
+
+    //Formatting string
+    for (int i = 0; i < tempCount; i++)
+    {
+        if (tempCount == 1)
+        {
+            sprintf(ts, "You are the only Mafia");
+        }
+        else if (tempCount > 1 && i == 0)
+        {
+            sprintf(ts, "Mafia are: %c", (char)'A' + g.mafia[i]);
+        }
+        else if(tempCount > 1 && i > 0)
+        {
+            sprintf(st, " and %c", (char)'A' + g.mafia[i]);
+            strcat(ts, st);
+        }
+    }
+    sprintf(st, "\n");
+    strcat(ts, st);
+    slen = strlen(ts);
+
+    //Sending who is mafia to all mafia
+    for (int i = 0; i < tempCount; i++)
+    {
+        send(g.client_socket[g.mafia[i]], ts, slen, 0);
+    }
+
+    tempCount = 0;
     //Detective assign
-    while (g.detectCount > 0) {
+    int tempDetect = g.detectCount;
+    while (tempDetect > 0)
+    {
         int rnum = rand() % playerNum;
-        if (g.player[rnum].hasRole == false) {
+        if (g.player[rnum].hasRole == false)
+        {
             g.player[rnum].role = Detective;
             g.player[rnum].hasRole = true;
-            g.detectCount--;
+            tempDetect--;
             sprintf(ts, "You are Detective\n");
             slen = strlen(ts);
             send(g.client_socket[rnum], ts, slen, 0);
         }
     }
+
+    //Finding all detective
+    for (int i = 0; i < playerNum; i++)
+    {
+        if (g.player[i].role == Detective)
+        {
+            g.detect[tempCount] = i;
+            tempCount++;
+        }
+    }
+
+    //Formatting string
+    for (int i = 0; i < tempCount; i++)
+    {
+        if (tempCount == 1)
+        {
+            sprintf(ts, "You are the only Detective");
+        }
+        else if (tempCount > 1 && i == 0)
+        {
+            sprintf(ts, "Detectives are: %c", (char)'A' + g.detect[i]);
+        }
+        else if(tempCount > 1 && i > 0)
+        {
+            sprintf(st, " and %c", (char)'A' + g.detect[i]);
+            strcat(ts, st);
+        }
+    }
+    sprintf(st, "\n");
+    strcat(ts, st);
+    slen = strlen(ts);
+
+    //Sending who is detective to all detectives
+    for (int i = 0; i < tempCount; i++)
+    {
+        send(g.client_socket[g.detect[i]], ts, slen, 0);
+    }
+    
+    tempCount = 0;
     //Doctor assign
-    while (g.doctorCount > 0) {
+    int tempDoctor = g.doctorCount;
+    while (tempDoctor > 0)
+    {
         int rnum = rand() % playerNum;
-        if (g.player[rnum].hasRole == false) {
+        if (g.player[rnum].hasRole == false)
+        {
             g.player[rnum].role = Doctor;
             g.player[rnum].hasRole = true;
-            g.doctorCount--;
+            tempDoctor--;
             sprintf(ts, "You are Doctor\n");
             slen = strlen(ts);
             send(g.client_socket[rnum], ts, slen, 0);
         }
     }
+
+    //Finding all Doctors
+    for (int i = 0; i < playerNum; i++)
+    {
+        if (g.player[i].role == Doctor)
+        {
+            g.doctor[tempCount] = i;
+            tempCount++;
+        }
+    }
+
+    //Formatting string
+    for (int i = 0; i < tempCount; i++)
+    {
+        if (tempCount == 1)
+        {
+            sprintf(ts, "You are the only Doctor");
+        }
+        else if (tempCount > 1 && i == 0)
+        {
+            sprintf(ts, "Doctors are: %c", (char)'A' + g.doctor[i]);
+        }
+        else if(tempCount > 1 && i > 0)
+        {
+            sprintf(st, " and %c", (char)'A' + g.doctor[i]);
+            strcat(ts, st);
+        }
+    }
+    sprintf(st, "\n");
+    strcat(ts, st);
+    slen = strlen(ts);
+
+    //Sending who is doctor to all doctors
+    for (int i = 0; i < tempCount; i++)
+    {
+        send(g.client_socket[g.doctor[i]], ts, slen, 0);
+    }
+    
+    tempCount = 0;
     //Civilian assign
-    while (g.civCount > 0) {
+    int tempCiv = g.civCount;
+    while (tempCiv > 0)
+    {
         int rnum = rand() % playerNum;
-        if (g.player[rnum].hasRole == false) {
+        if (g.player[rnum].hasRole == false)
+        {
             g.player[rnum].role = Civilian;
             g.player[rnum].hasRole = true;
-            g.civCount--;
+            tempCiv--;
             sprintf(ts, "You are Civilian\n");
             slen = strlen(ts);
             send(g.client_socket[rnum], ts, slen, 0);

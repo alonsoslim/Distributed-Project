@@ -387,11 +387,13 @@ void roundCheck()
     if (g.currentDead == g.currentSave)
     {
         g.currentDead = -1;
+        g.currentSave = -1;
         sendAll("The victim was saved by the doctor.\n");
         sendAll("CHOOSE SOMEONE TO VOTE OUT\n");
     }
     else
     {
+        g.currentSave = -1;
         g.player[g.currentDead].isDead = true;
         //g.dead[g.current] = g.currentDead;
         g.deadCount++;
@@ -594,10 +596,30 @@ void messageFromClient(int playerIdx, char *buffer)
             {
                 g.currentDead = 4;
             }
-            g.currentAction++;
-            printf("current action: %d\n", g.currentAction);
-            sendDetect();
-            done = 1;
+            if (g.detectCount > 0)
+            {
+                g.currentAction++;
+                printf("current action: %d\n", g.currentAction);
+                sendDetect();
+                done = 1;
+            }
+            else
+            {
+                if (g.doctorCount > 0)
+                {
+                    g.currentAction = Doctor;
+                    printf("current action: %d\n", g.currentAction);
+                    sendDoctor();
+                    done = 1;
+                }
+                else
+                {
+                    g.currentAction = Civilian;
+                    printf("current action: %d\n", g.currentAction);
+                    roundCheck();
+                    done = 1;
+                }
+            }
             //printf("current dead is: %d\n", g.currentDead);
         }
         else if (g.currentAction == Detective)
@@ -627,10 +649,20 @@ void messageFromClient(int playerIdx, char *buffer)
                 sendDetect("They are mafia...\n");
             else
                 sendDetect("They are not mafia...\n");
-            g.currentAction++;
-            printf("current action: %d\n", g.currentAction);
-            sendDoctor();
-            done = 1;
+            if (g.doctorCount > 0)
+            {
+                g.currentAction++;
+                printf("current action: %d\n", g.currentAction);
+                sendDoctor();
+                done = 1;
+            }
+            else
+            {
+                g.currentAction = Civilian;
+                printf("current action: %d\n", g.currentAction);
+                roundCheck();
+                done = 1;
+            }
         }
         else if (g.currentAction == Doctor)
         {

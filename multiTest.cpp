@@ -67,13 +67,10 @@ public:
 void sendAll(char *message);
 void sendAllAlive(char *message);
 void startMafia();
-void sendMafia(char *message);
 void mafiaChoiceConfirm(int choice);
 void startDetect();
-void sendDetect(char *message);
 void detectChoiceConfirm(int choice);
 void startDoctor();
-void sendDoctor(char *message);
 void doctorChoiceConfirm(int choice);
 void roundCheck();
 bool voteCheck();
@@ -248,7 +245,7 @@ int main(int argc , char *argv[])
                     {
                         for (int j = 0; j < g.mafiaCount; j++)
                         {
-                            if (i == g.mafia[j] && g.player[j].isDead == false)
+                            if (i == g.mafia[j] && g.player[i].isDead == false)
                             {
                                 printf("Message received from mafia: %c\n", (char)'A'+i);
                                 buffer[valread] = '\0';
@@ -260,7 +257,7 @@ int main(int argc , char *argv[])
                     {
                         for (int j = 0; j < g.detectCount; j++)
                         {
-                            if (i == g.detect[j] && g.player[j].isDead == false)
+                            if (i == g.detect[j] && g.player[i].isDead == false)
                             {
                                 printf("Message received from dectective: %c\n", (char)'A'+i);
                                 buffer[valread] = '\0';
@@ -272,7 +269,7 @@ int main(int argc , char *argv[])
                     {
                         for (int j = 0; j < g.doctorCount; j++)
                         {
-                            if (i == g.doctor[j] && g.player[j].isDead == false)
+                            if (i == g.doctor[j] && g.player[i].isDead == false)
                             {
                                 printf("Message received from doctor: %c\n", (char)'A'+i);
                                 buffer[valread] = '\0';
@@ -287,7 +284,6 @@ int main(int argc , char *argv[])
                             printf("Vote received from: %c\n", (char)'A'+i);
                             buffer[valread] = '\0';
                             messageFromClient(i, buffer);
-                            //g.player[i].hasVoted = true;
                         }
                     }
                     else
@@ -349,21 +345,6 @@ void startMafia()
     printf("end of startMafia\n");
 }
 
-void sendMafia(char *message)
-{
-    printf("start of sendMafia\n");
-    int slen = strlen(message);
-    int tempMafia = g.mafiaCount;
-    for (int i = 0; i < tempMafia; i++)
-    {
-        if (g.player[g.mafia[i]].isDead == true)
-            tempMafia++;
-        else
-            send(g.client_socket[g.mafia[i]], message, slen, 0);
-    }
-    printf("end of sendMafia\n");
-}
-
 void mafiaChoiceConfirm(int choice)
 {
     printf("start of mafiaChoiceConfirm\n");
@@ -404,21 +385,6 @@ void startDetect()
     g.currentAction = Detective;
     printf("current action: %d\n", g.currentAction);
     printf("end of startDetect\n");
-}
-
-void sendDetect(char *message)
-{
-    printf("start of sendDetect\n");
-    int slen = strlen(message);
-    int tempDetect = g.detectCount;
-    for (int i = 0; i < tempDetect; i++)
-    {
-        if (g.player[g.detect[i]].isDead == true)
-            tempDetect++;
-        else
-            send(g.client_socket[g.detect[i]], message, slen, 0);
-    }
-    printf("end of sendDetect\n");
 }
 
 void detectChoiceConfirm(int choice)
@@ -472,21 +438,6 @@ void startDoctor()
     printf("end of startDoctor\n");
 }
 
-void sendDoctor(char *message)
-{
-    printf("start of sendDoctor\n");
-    int slen = strlen(message);
-    int tempDoctor = g.doctorCount;
-    for (int i = 0; i < tempDoctor; i++)
-    {
-        if (g.player[g.doctor[i]].isDead == true)
-            tempDoctor++;
-        else
-            send(g.client_socket[g.doctor[i]], message, slen, 0);
-    }
-    printf("end of sendDoctor\n");
-}
-
 void doctorChoiceConfirm(int choice)
 {
     printf("start of doctorChoiceConfirm\n");
@@ -537,7 +488,6 @@ void roundCheck()
             g.civCount--;
         }
         
-        //sendAll("Player %s has died.\n", (char'A'+g.currentDead));
         for (int i = 0; i < g.nclients; i++)
         {
             sprintf(ts, "Player %c has died.\n", (char)'A'+g.currentDead);
@@ -566,7 +516,7 @@ bool voteCheck()
     char ts[1640];
     int slen = 0;
     g.isTie = false;
-    g.votedPlayer = -1;
+    g.votedPlayer = 0;
     //max vote count
     for (int i = 1; i < g.nclients; i++)
     {
@@ -677,12 +627,10 @@ void messageFromClient(int playerIdx, char *buffer)
             p = strstr(buff, "start");
             if (p && !g.isStart)
             {
-                //printf("inside of start\n");
                 assignRoles(g.nclients);
                 sendAll("The game has begun\n");
                 g.isStart = true;
                 startMafia();
-                //printf("current action is: %d\n", g.currentAction);
             }
             else
             {
@@ -707,7 +655,6 @@ void messageFromClient(int playerIdx, char *buffer)
         else if (g.currentAction == Mafia)
         {
             bool foundPlayer = false;
-            //printf("\nINSIDE kill check\ncurrent action is: %d\n", g.currentAction);
             for (int i  = 0; i < g.nclients; i++)
             {
                 if(*buff == (char)'A'+i)
@@ -768,7 +715,6 @@ void messageFromClient(int playerIdx, char *buffer)
                 startMafia();
                 done = 1;
             }
-            //printf("current dead is: %d\n", g.currentDead);
         }
         //=====================================================================
         //Detective Action
@@ -776,7 +722,6 @@ void messageFromClient(int playerIdx, char *buffer)
         else if (g.currentAction == Detective)
         {
             bool foundPlayer = false;
-            //printf("\nINSIDE suspect check\ncurrent action is: %d\n", g.currentAction);
             for (int i  = 0; i < g.nclients; i++)
             {
                 if(*buff == (char)'A'+i)
@@ -832,7 +777,6 @@ void messageFromClient(int playerIdx, char *buffer)
         else if (g.currentAction == Doctor)
         {
             bool foundPlayer = false;
-            //printf("\nINSIDE save check\ncurrent action is: %d\n", g.currentAction);
             for (int i  = 0; i < g.nclients; i++)
             {
                 if(*buff == (char)'A'+i)
@@ -879,7 +823,6 @@ void messageFromClient(int playerIdx, char *buffer)
         {
             bool foundPlayer = false;
             int choice = -1;
-            //printf("\nINSIDE save check\ncurrent action is: %d\n", g.currentAction);
             for (int i  = 0; i < g.nclients; i++)
             {
                 if(*buff == (char)'A'+i)
@@ -974,8 +917,6 @@ void messageFromClient(int playerIdx, char *buffer)
                 done = 1;
             }
         }
-        //printf("\nOUTSIDE action checks\ncurrent action is: %d\n", g.currentAction);
-        //printf("current dead is: %d\n", g.currentDead);
 	}
     printf("end of messageFromClient\n");
 }

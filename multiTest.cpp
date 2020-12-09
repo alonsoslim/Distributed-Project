@@ -1,6 +1,4 @@
-/**
-	Handle multiple socket connections with select and fd_set on Linux
-*/
+//Github
 
 #include <stdio.h>
 #include <string.h>   //strlen
@@ -42,11 +40,11 @@ public:
 	int client_socket[30];
 	int nclients;
     int playerCount = 0;
-    int mafiaCount = 2;
+    int mafiaCount = 1;
     int deadMafia = 0;
     int detectCount = 1;
     int doctorCount = 1;
-    int mafia[2];
+    int mafia[1];
     int detect[1];
     int doctor[1];
     int deadCount = 0;
@@ -99,15 +97,13 @@ int main(int argc , char *argv[])
 	int max_sd;
     char ts[1640];
     int slen = 0;
-    //char *buff;
-    //char *p;
     struct sockaddr_in address;
-    
+
     char buffer[1025];  //data buffer of 1K
-    
+
     //set of socket descriptors
     fd_set readfds;
-    
+
     //a message
     char *message = "Weclome to MAFIA\r\n";
 
@@ -116,7 +112,7 @@ int main(int argc , char *argv[])
     {
         g.client_socket[i] = 0;
     }
-    
+
     //create a master socket
     if( (master_socket = socket(AF_INET , SOCK_STREAM , 0)) == 0) 
     {
@@ -135,7 +131,7 @@ int main(int argc , char *argv[])
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons( PORT );
-    
+
     //bind the socket to localhost port 8888
     if (bind(master_socket, (struct sockaddr *)&address, sizeof(address))<0) 
     {
@@ -143,14 +139,14 @@ int main(int argc , char *argv[])
         exit(EXIT_FAILURE);
     }
 	printf("Listener on port %d \n", PORT);
-	
+
     //try to specify maximum of 3 pending connections for the master socket
     if (listen(master_socket, 3) < 0)
     {
         perror("listen");
         exit(EXIT_FAILURE);
     }
-    
+
     //accept the incoming connection
     addrlen = sizeof(address);
     puts("Waiting for connections ...");
@@ -163,17 +159,17 @@ int main(int argc , char *argv[])
         //add master socket to set
         FD_SET(master_socket, &readfds);
         max_sd = master_socket;
-		
+
         //add child sockets to set
         for ( i = 0 ; i < max_clients ; i++) 
         {
             //socket descriptor
 			sd = g.client_socket[i];
-            
+
 			//if valid socket descriptor then add to read list
 			if(sd > 0)
 				FD_SET( sd , &readfds);
-            
+
             //highest file descriptor number, need it for the select function
             if(sd > max_sd)
 				max_sd = sd;
@@ -186,7 +182,7 @@ int main(int argc , char *argv[])
         {
             printf("select error");
         }
-        
+
         //If something happened on the master socket , then its an incoming connection
         if (FD_ISSET(master_socket, &readfds)) 
         {
@@ -195,9 +191,9 @@ int main(int argc , char *argv[])
                 perror("accept");
                 exit(EXIT_FAILURE);
             }
-        
+
             //inform user of socket number - used in send and receive commands
-            printf("New connection , socket fd is %d , ip is : %s , port : %d \n" , new_socket , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
+            printf("New connection , socket fd is %d , ip is : %s , port : %d \n", new_socket, inet_ntoa(address.sin_addr), ntohs(address.sin_port));
 
             //send new connection greeting message
             if( send(new_socket, message, strlen(message), 0) != strlen(message) ) 
@@ -206,7 +202,7 @@ int main(int argc , char *argv[])
             }
 
             puts("Welcome message sent successfully");
-            
+
             //add new socket to array of sockets
             for (i = 0; i < max_clients; i++) 
             {
@@ -224,12 +220,12 @@ int main(int argc , char *argv[])
                 }
             }
         }
-        
+
         //else its some IO operation on some other socket
         for (i = 0; i < g.nclients; i++) 
         {
             sd = g.client_socket[i];
-            
+
             if (FD_ISSET( sd , &readfds)) 
             {
                 //Check if it was for closing , and also read the incoming message
@@ -238,7 +234,6 @@ int main(int argc , char *argv[])
                     //Somebody disconnected , get his details and print
                     getpeername(sd , (struct sockaddr*)&address , (socklen_t*)&addrlen);
                     printf("Host disconnected , ip %s , port %d \n" , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
-                    //g.nclients--;
                     if (g.player[i].hasRole == true)
                     {
                         g.player[i].hasRole = false;
@@ -246,7 +241,6 @@ int main(int argc , char *argv[])
                         g.deadCount++;
                         close( sd );
                         g.client_socket[i] = 0;
-                        //g.playerCount--;
                         if (g.player[i].role == Mafia)
                         {
                             g.deadMafia++;
@@ -667,7 +661,7 @@ void gameOver()
         g.player[i].hasRole = false;
         g.player[i].hasVoted = false;
         g.player[i].voteCount = 0;
-        g.mafiaCount = 2;
+        g.mafiaCount = 1;
         g.deadMafia = 0;
         g.detectCount = 1;
         g.doctorCount = 1;
@@ -722,7 +716,6 @@ void whosAlive(int role)
     log("start of whosAlive role\n");
     char message[1640];
     int slen = 0;
-    //sendMafia("\nThese are the remaining players:\n");
     switch(role)
     {
         case 1:
@@ -810,7 +803,6 @@ void log(char *message)
     log = fopen("log.txt", "a");
     fprintf(log, message);
     fclose(log);
-    //outputfile << message;
 }
 
 void messageFromClient(int playerIdx, char *buffer)
@@ -1055,7 +1047,6 @@ void messageFromClient(int playerIdx, char *buffer)
                     break;
                 }
             }
-            //playerStatus();
             if (foundPlayer)
             {
                 if (g.player[choice].isDead == true)
@@ -1083,7 +1074,6 @@ void messageFromClient(int playerIdx, char *buffer)
                         printf("INSIDE If total votes: %d\n", g.totalVotes);
                         if (voteCheck() == false)
                         {
-                            //printf("check win is: %d\n", checkWin());
                             if (checkWin() == false)
                             {
                                 g.totalVotes = 0;
@@ -1097,11 +1087,6 @@ void messageFromClient(int playerIdx, char *buffer)
                                 g.currentAction = Mafia;
                                 printf("current action: %d\n", g.currentAction);
                             }
-                            //else
-                            //{
-                            //    printf("vote game over\n");
-                            //    gameOver();
-                            //}
                         }
                         else
                         {
@@ -1163,7 +1148,7 @@ void assignRoles(int playerNum)
                 send(g.client_socket[rnum], ts, slen, 0);
         }
     }
-    
+
     //Finding all mafia
     for (int i = 0; i < playerNum; i++)
     {
